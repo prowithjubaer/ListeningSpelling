@@ -1,0 +1,10 @@
+node_modules/
+server/data/
+server/uploads/audio/*
+server/uploads/recordings/*
+!server/uploads/audio/.gitkeep
+!server/uploads/recordings/.gitkeep
+client/dist/
+.env
+*.sqlite
+/tmp/
