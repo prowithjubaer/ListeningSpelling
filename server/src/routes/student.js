@@ -133,10 +133,26 @@ router.post('/practice/:id/submit', (req, res) => {
 router.get('/mistakes', (req, res) => {
   try {
     const studentId = req.user.id; const { category } = req.query;
-    let query = "SELECT sp.*, li.correct_text, li.category, li.difficulty, li.british_audio_path, li.australian_audio_path, li.teacher_audio_path, li.tts_enabled FROM student_progress sp JOIN listening_items li ON li.id = sp.item_id WHERE sp.student_id = ? AND sp.wrong_count > 0 AND sp.status != 'mastered'";
-    const params = [studentId]; if (category) { query += ' AND li.category = ?'; params.push(category); } query += ' ORDER BY sp.wrong_count DESC';
+    // Get items where student has wrong attempts recorded
+    let query = `
+      SELECT sp.*, li.correct_text, li.category, li.difficulty, li.british_audio_path, li.australian_audio_path, li.teacher_audio_path, li.tts_enabled
+      FROM student_progress sp
+      JOIN listening_items li ON li.id = sp.item_id
+      WHERE sp.student_id = ? AND sp.wrong_count > 0
+    `;
+    const params = [studentId]; 
+    if (category) { query += ' AND li.category = ?'; params.push(category); }
+    query += ' ORDER BY sp.wrong_count DESC, sp.last_practiced_at DESC';
     const mistakes = db.prepare(query).all(...params);
-    const result = mistakes.map(m => { const lastAttempt = db.prepare('SELECT typed_answer, created_at FROM practice_attempts WHERE student_id = ? AND item_id = ? AND is_correct = 0 ORDER BY created_at DESC LIMIT 1').get(studentId, m.item_id); return { ...m, last_wrong_answer: lastAttempt?.typed_answer || '', last_mistake_date: lastAttempt?.created_at || '', differences: lastAttempt ? getDifferences(lastAttempt.typed_answer, m.correct_text) : [] }; });
+    const result = mistakes.map(m => { 
+      const lastAttempt = db.prepare('SELECT typed_answer, created_at FROM practice_attempts WHERE student_id = ? AND item_id = ? AND is_correct = 0 ORDER BY created_at DESC LIMIT 1').get(studentId, m.item_id); 
+      return { 
+        ...m, 
+        last_wrong_answer: lastAttempt?.typed_answer || '', 
+        last_mistake_date: lastAttempt?.created_at || '', 
+        differences: lastAttempt ? getDifferences(lastAttempt.typed_answer, m.correct_text) : [] 
+      }; 
+    });
     res.json(result);
   } catch (err) { res.status(500).json({ error: 'Failed to get mistakes.' }); }
 });
@@ -146,13 +162,43 @@ router.get('/leaderboard', (req, res) => {
   try {
     const setting = db.prepare("SELECT value FROM settings WHERE key = 'leaderboard_enabled'").get();
     if (!setting || setting.value !== '1') return res.json({ enabled: false, data: [] });
-    const privacySetting = db.prepare("SELECT value FROM settings WHERE key = 'leaderboard_privacy'").get();
-    const privacy = privacySetting?.value || 'partial';
-    const { period } = req.query; let dateFilter = '';
-    if (period === 'weekly') dateFilter = "AND xl.created_at >= datetime('now', '-7 days')";
-    else if (period === 'monthly') dateFilter = "AND xl.created_at >= datetime('now', '-30 days')";
-    const data = db.prepare(`SELECT u.id, u.name, u.xp, u.streak, u.best_streak, COALESCE(SUM(xl.xp), 0) as period_xp, COALESCE(ROUND(AVG(CASE WHEN pa.is_correct = 1 THEN 100.0 ELSE 0.0 END), 1), 0) as accuracy FROM users u LEFT JOIN xp_logs xl ON xl.student_id = u.id ${dateFilter} LEFT JOIN practice_attempts pa ON pa.student_id = u.id WHERE u.role = 'student' AND u.status = 'active' GROUP BY u.id ORDER BY ${period ? 'period_xp' : 'u.xp'} DESC LIMIT 50`).all();
-    const result = data.map((d, i) => ({ rank: i + 1, name: privacy === 'partial' ? maskName(d.name) : d.name, xp: period ? d.period_xp : d.xp, streak: d.streak, accuracy: d.accuracy, isCurrentUser: d.id === req.user.id }));
+    const { period } = req.query;
+
+    let data;
+    if (period === 'weekly' || period === 'monthly') {
+      const days = period === 'weekly' ? '-7 days' : '-30 days';
+      data = db.prepare(`
+        SELECT u.id, u.name, u.xp as total_xp, u.streak,
+          COALESCE((SELECT SUM(xl.xp) FROM xp_logs xl WHERE xl.student_id = u.id AND xl.created_at >= datetime('now', ?)), 0) as period_xp,
+          COALESCE((SELECT ROUND(AVG(CASE WHEN pa.is_correct = 1 THEN 100.0 ELSE 0.0 END), 1) FROM practice_attempts pa WHERE pa.student_id = u.id), 0) as accuracy
+        FROM users u
+        WHERE u.role = 'student' AND u.status = 'active'
+        ORDER BY period_xp DESC
+        LIMIT 50
+      `).all(days);
+    } else {
+      // All time - use total XP from users table directly
+      data = db.prepare(`
+        SELECT u.id, u.name, u.xp as total_xp, u.streak,
+          u.xp as period_xp,
+          COALESCE((SELECT ROUND(AVG(CASE WHEN pa.is_correct = 1 THEN 100.0 ELSE 0.0 END), 1) FROM practice_attempts pa WHERE pa.student_id = u.id), 0) as accuracy
+        FROM users u
+        WHERE u.role = 'student' AND u.status = 'active'
+        ORDER BY u.xp DESC
+        LIMIT 50
+      `).all();
+    }
+
+    // Always show full names (no masking)
+    const result = data.map((d, i) => ({
+      rank: i + 1,
+      name: d.name,
+      xp: d.period_xp,
+      total_xp: d.total_xp,
+      streak: d.streak,
+      accuracy: d.accuracy,
+      isCurrentUser: d.id === req.user.id
+    }));
     res.json({ enabled: true, data: result });
   } catch (err) { res.status(500).json({ error: 'Failed to get leaderboard.' }); }
 });

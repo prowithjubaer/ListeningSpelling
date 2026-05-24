@@ -137,51 +137,38 @@ export default function Practice() {
         const utterance = new SpeechSynthesisUtterance(text);
         const voices = window.speechSynthesis.getVoices();
 
-        // Precise voice matching for each accent
+        // Force the correct language tag FIRST - this is the most reliable method
+        // Browser will automatically use the best matching voice for the lang
+        const langMap = {
+          'british': 'en-GB',
+          'american': 'en-US',
+          'australian': 'en-AU',
+          'newzealand': 'en-NZ'
+        };
+        utterance.lang = langMap[accent] || 'en-GB';
+
+        // Then try to find a specific voice for even better accuracy
         let targetVoice = null;
+        if (voices.length > 0) {
+          const targetLang = langMap[accent];
+          
+          // Priority 1: Exact lang match
+          targetVoice = voices.find(v => v.lang === targetLang);
+          
+          // Priority 2: Partial match (e.g., en-GB matches en-GB-x-rjs)
+          if (!targetVoice) targetVoice = voices.find(v => v.lang.startsWith(targetLang));
+          
+          // Priority 3: For NZ, try AU then GB
+          if (!targetVoice && accent === 'newzealand') {
+            targetVoice = voices.find(v => v.lang === 'en-AU') || voices.find(v => v.lang === 'en-GB');
+          }
+          
+          // Priority 4: Any English voice
+          if (!targetVoice) targetVoice = voices.find(v => v.lang.startsWith('en'));
 
-        if (accent === 'british') {
-          // Priority order for British English
-          targetVoice = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('female')) ||
-                        voices.find(v => v.lang === 'en-GB') ||
-                        voices.find(v => v.name.toLowerCase().includes('british')) ||
-                        voices.find(v => v.name.includes('Daniel') && v.lang.startsWith('en')) ||
-                        voices.find(v => v.name.includes('Kate') && v.lang.startsWith('en'));
-          utterance.lang = 'en-GB';
-        } else if (accent === 'american') {
-          // Priority order for American English
-          targetVoice = voices.find(v => v.lang === 'en-US' && v.name.toLowerCase().includes('female')) ||
-                        voices.find(v => v.lang === 'en-US') ||
-                        voices.find(v => v.name.toLowerCase().includes('american')) ||
-                        voices.find(v => v.name.includes('Samantha')) ||
-                        voices.find(v => v.name.includes('Alex'));
-          utterance.lang = 'en-US';
-        } else if (accent === 'australian') {
-          // Priority order for Australian English
-          targetVoice = voices.find(v => v.lang === 'en-AU') ||
-                        voices.find(v => v.name.toLowerCase().includes('australia')) ||
-                        voices.find(v => v.name.includes('Karen') && v.lang.startsWith('en')) ||
-                        voices.find(v => v.name.includes('Lee') && v.lang.startsWith('en'));
-          utterance.lang = 'en-AU';
-        } else if (accent === 'newzealand') {
-          // Priority order for New Zealand English
-          targetVoice = voices.find(v => v.lang === 'en-NZ') ||
-                        voices.find(v => v.name.toLowerCase().includes('zealand')) ||
-                        voices.find(v => v.name.toLowerCase().includes('new zealand')) ||
-                        // NZ is close to Australian, fallback
-                        voices.find(v => v.lang === 'en-AU') ||
-                        voices.find(v => v.lang === 'en-GB');
-          utterance.lang = 'en-NZ';
-        }
-
-        // If no specific voice found, use any English voice
-        if (!targetVoice) {
-          targetVoice = voices.find(v => v.lang.startsWith('en'));
-        }
-
-        if (targetVoice) {
-          utterance.voice = targetVoice;
-          utterance.lang = targetVoice.lang; // Ensure lang matches the found voice
+          if (targetVoice) {
+            utterance.voice = targetVoice;
+          }
         }
 
         utterance.rate = 0.85;
