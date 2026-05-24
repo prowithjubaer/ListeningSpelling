@@ -21,6 +21,7 @@ export default function Practice() {
   const [isPaused, setIsPaused] = useState(false);
   const [replayCount, setReplayCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [recordingUrl, setRecordingUrl] = useState(null);
   const [ttsText, setTtsText] = useState('');
   const [ttsSentences, setTtsSentences] = useState([]);
@@ -238,13 +239,29 @@ export default function Practice() {
       };
       mediaRecorder.start();
       setIsRecording(true);
+      setIsRecordingPaused(false);
     } catch { toast.error('মাইক্রোফোন অ্যাক্সেস দিন'); }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      setIsRecordingPaused(true);
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      setIsRecordingPaused(false);
+    }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsRecordingPaused(false);
     }
   };
 
@@ -493,15 +510,39 @@ export default function Practice() {
             {!isRecording ? (
               <button onClick={startRecording} className="bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-red-600 transition">🎙️ Record</button>
             ) : (
-              <button onClick={stopRecording} className="btn-danger text-sm py-2 animate-pulse">⏹️ Stop</button>
-            )}
-            {recordingUrl && (
               <>
-                <audio controls src={recordingUrl} className="flex-1 h-10" />
-                <button onClick={() => setRecordingUrl(null)} className="text-red-500 text-sm hover:underline">🗑️</button>
+                {isRecordingPaused ? (
+                  <button onClick={resumeRecording} className="bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-green-600 transition">▶️ Resume</button>
+                ) : (
+                  <button onClick={pauseRecording} className="bg-yellow-500 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-yellow-600 transition">⏸️ Pause</button>
+                )}
+                <button onClick={stopRecording} className="btn-danger text-sm py-2">⏹️ Stop</button>
+                <span className={`text-xs font-medium ${isRecordingPaused ? 'text-yellow-600' : 'text-red-500 animate-pulse'}`}>
+                  {isRecordingPaused ? '⏸ Paused' : '● Recording...'}
+                </span>
               </>
             )}
           </div>
+
+          {/* After recording: Compare section */}
+          {recordingUrl && (
+            <div className="mt-4 space-y-3 border-t pt-4">
+              <div>
+                <p className="text-xs text-gray-600 font-medium mb-1">🎤 তোমার রেকর্ডিং:</p>
+                <audio controls src={recordingUrl} className="w-full h-10" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-600 font-medium mb-1">🔊 অরিজিনাল অডিও (compare করো):</p>
+                <button onClick={playAudio} disabled={isPlaying}
+                  className="bg-brand-navy text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-navy-600 transition disabled:opacity-50">
+                  {isPlaying ? '🔊 Playing...' : '▶️ Play Original'}
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => { setRecordingUrl(null); }} className="text-red-500 text-sm hover:underline">🗑️ Delete & Re-record</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </StudentLayout>
