@@ -26,6 +26,7 @@ export default function Practice() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const inputRef = useRef(null);
+  const audioElementRef = useRef(null); // For uploaded audio seek support
 
   // Load speech synthesis voices early
   useEffect(() => {
@@ -104,9 +105,10 @@ export default function Practice() {
 
     if (audioFile) {
       const audio = new Audio(`/uploads/audio/${audioFile}`);
-      audio.onended = () => setIsPlaying(false);
-      audio.onerror = () => { setIsPlaying(false); playTTS(); };
-      audio.play().catch(() => { setIsPlaying(false); playTTS(); });
+      audioElementRef.current = audio;
+      audio.onended = () => { setIsPlaying(false); audioElementRef.current = null; };
+      audio.onerror = () => { setIsPlaying(false); audioElementRef.current = null; playTTS(); };
+      audio.play().catch(() => { setIsPlaying(false); audioElementRef.current = null; playTTS(); });
       return;
     }
 
@@ -257,6 +259,17 @@ export default function Practice() {
     }
   };
 
+  // Skip forward/backward for audio (works with uploaded audio)
+  const skipAudio = (seconds) => {
+    if (audioElementRef.current) {
+      // Uploaded audio — proper seek
+      audioElementRef.current.currentTime = Math.max(0, Math.min(audioElementRef.current.duration, audioElementRef.current.currentTime + seconds));
+    } else if (window.speechSynthesis && isPlaying) {
+      // TTS — no native seek, show toast
+      toast('TTS-এ skip সমর্থিত নয়। Uploaded audio-তে কাজ করে।', { icon: 'ℹ️', duration: 2000 });
+    }
+  };
+
   // Keyboard: space to play when not in input
   useEffect(() => {
     const handler = (e) => {
@@ -332,37 +345,63 @@ export default function Practice() {
 
         {/* Audio Player */}
         <div className="card mb-4 text-center">
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-center gap-3">
+            {/* Skip backward 5s */}
+            {item?.category === 'passage' && (
+              <button onClick={() => skipAudio(-5)}
+                className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+                title="৫ সেকেন্ড পিছনে">
+                -5s
+              </button>
+            )}
+
+            {/* Play button */}
             <button onClick={playAudio} disabled={isPlaying}
               className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl transition-all ${isPlaying ? 'bg-brand-navy text-white animate-pulse' : 'bg-navy-50 text-brand-navy hover:bg-navy-100 hover:scale-105'}`}>
               {isPlaying ? '🔊' : '▶️'}
             </button>
-            {/* Pause/Resume for passage practice */}
+
+            {/* Pause/Resume for passage */}
             {item?.category === 'passage' && isPlaying && (
               <button onClick={() => {
                 if (window.speechSynthesis.paused) {
                   window.speechSynthesis.resume();
+                } else if (audioElementRef.current) {
+                  // Uploaded audio pause/resume
+                  if (audioElementRef.current.paused) {
+                    audioElementRef.current.play();
+                  } else {
+                    audioElementRef.current.pause();
+                  }
                 } else {
                   window.speechSynthesis.pause();
                 }
               }}
                 className="w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-all">
-                {window.speechSynthesis?.paused ? '▶️' : '⏸️'}
+                {(window.speechSynthesis?.paused || audioElementRef.current?.paused) ? '▶️' : '⏸️'}
               </button>
             )}
-            {item?.category === 'passage' && !isPlaying && replayCount > 0 && (
-              <button onClick={() => {
-                window.speechSynthesis.cancel();
-                setIsPlaying(false);
-              }}
-                className="w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-red-100 text-red-600 hover:bg-red-200 transition-all"
-                title="Stop">
-                ⏹️
+
+            {/* Skip forward 5s */}
+            {item?.category === 'passage' && (
+              <button onClick={() => skipAudio(5)}
+                className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+                title="৫ সেকেন্ড সামনে">
+                +5s
               </button>
             )}
           </div>
+
+          {/* Extra skip controls for passage */}
+          {item?.category === 'passage' && (
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <button onClick={() => skipAudio(-10)} className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition">⏪ 10s</button>
+              <button onClick={() => skipAudio(10)} className="px-3 py-1 rounded-lg text-xs font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition">10s ⏩</button>
+            </div>
+          )}
+
           <p className="text-sm text-gray-500 mt-3">
-            {isPlaying ? (item?.category === 'passage' ? 'শুনছো... (Pause করতে পারো)' : 'শুনছো...') : 'শোনার জন্য ক্লিক করো (বা Space চাপো)'}
+            {isPlaying ? (item?.category === 'passage' ? 'শুনছো... (Pause/Skip করতে পারো)' : 'শুনছো...') : 'শোনার জন্য ক্লিক করো (বা Space চাপো)'}
           </p>
           <p className="text-xs text-gray-400 mt-1">Replays: {replayCount} {item?.replay_limit ? `/ ${item.replay_limit}` : ''}</p>
         </div>
