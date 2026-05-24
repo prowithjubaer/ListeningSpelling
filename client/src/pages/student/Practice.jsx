@@ -332,11 +332,38 @@ export default function Practice() {
 
         {/* Audio Player */}
         <div className="card mb-4 text-center">
-          <button onClick={playAudio} disabled={isPlaying}
-            className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl mx-auto transition-all ${isPlaying ? 'bg-brand-navy text-white animate-pulse' : 'bg-navy-50 text-brand-navy hover:bg-navy-100 hover:scale-105'}`}>
-            {isPlaying ? '🔊' : '▶️'}
-          </button>
-          <p className="text-sm text-gray-500 mt-3">{isPlaying ? 'শুনছো...' : 'শোনার জন্য ক্লিক করো (বা Space চাপো)'}</p>
+          <div className="flex items-center justify-center gap-4">
+            <button onClick={playAudio} disabled={isPlaying}
+              className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl transition-all ${isPlaying ? 'bg-brand-navy text-white animate-pulse' : 'bg-navy-50 text-brand-navy hover:bg-navy-100 hover:scale-105'}`}>
+              {isPlaying ? '🔊' : '▶️'}
+            </button>
+            {/* Pause/Resume for passage practice */}
+            {item?.category === 'passage' && isPlaying && (
+              <button onClick={() => {
+                if (window.speechSynthesis.paused) {
+                  window.speechSynthesis.resume();
+                } else {
+                  window.speechSynthesis.pause();
+                }
+              }}
+                className="w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-all">
+                {window.speechSynthesis?.paused ? '▶️' : '⏸️'}
+              </button>
+            )}
+            {item?.category === 'passage' && !isPlaying && replayCount > 0 && (
+              <button onClick={() => {
+                window.speechSynthesis.cancel();
+                setIsPlaying(false);
+              }}
+                className="w-14 h-14 rounded-full flex items-center justify-center text-2xl bg-red-100 text-red-600 hover:bg-red-200 transition-all"
+                title="Stop">
+                ⏹️
+              </button>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mt-3">
+            {isPlaying ? (item?.category === 'passage' ? 'শুনছো... (Pause করতে পারো)' : 'শুনছো...') : 'শোনার জন্য ক্লিক করো (বা Space চাপো)'}
+          </p>
           <p className="text-xs text-gray-400 mt-1">Replays: {replayCount} {item?.replay_limit ? `/ ${item.replay_limit}` : ''}</p>
         </div>
 
