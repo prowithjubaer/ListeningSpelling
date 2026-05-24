@@ -17,7 +17,16 @@ export default function Leaderboard() {
   const fetchLeaderboard = () => {
     setLoading(true);
     api.get('/student/leaderboard', { params: { period } })
-      .then(res => setLeaders(res.data))
+      .then(res => {
+        // Backend returns { enabled, data: [...] }
+        if (res.data && res.data.data) {
+          setLeaders(res.data.data);
+        } else if (Array.isArray(res.data)) {
+          setLeaders(res.data);
+        } else {
+          setLeaders([]);
+        }
+      })
       .catch(() => toast.error('লিডারবোর্ড লোড করতে সমস্যা হয়েছে'))
       .finally(() => setLoading(false));
   };
@@ -67,10 +76,10 @@ export default function Leaderboard() {
       ) : (
         <div className="space-y-3">
           {leaders.map((entry, index) => {
-            const isCurrentUser = entry.user_id === user?.id || entry.id === user?.id;
+            const isCurrentUser = entry.isCurrentUser;
             return (
               <div
-                key={entry.id || index}
+                key={index}
                 className={`card flex items-center gap-4 transition ${
                   isCurrentUser ? 'ring-2 ring-brand-navy bg-navy-50' : ''
                 } ${index < 3 ? 'shadow-md' : ''}`}

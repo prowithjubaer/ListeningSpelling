@@ -16,6 +16,7 @@ export default function Practice() {
   const [attempts, setAttempts] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const [accent, setAccent] = useState('british');
+  const [voicesLoaded, setVoicesLoaded] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [replayCount, setReplayCount] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
@@ -25,6 +26,17 @@ export default function Practice() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const inputRef = useRef(null);
+
+  // Load speech synthesis voices early
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis?.getVoices();
+      if (voices && voices.length > 0) setVoicesLoaded(true);
+    };
+    loadVoices();
+    window.speechSynthesis?.addEventListener('voiceschanged', loadVoices);
+    return () => window.speechSynthesis?.removeEventListener('voiceschanged', loadVoices);
+  }, []);
 
   useEffect(() => {
     fetchItems();
@@ -86,7 +98,9 @@ export default function Practice() {
     // Try uploaded audio first
     const audioFile = accent === 'british' ? item.british_audio_path :
                       accent === 'australian' ? item.australian_audio_path :
-                      item.teacher_audio_path;
+                      accent === 'american' ? item.american_audio_path :
+                      accent === 'newzealand' ? item.newzealand_audio_path :
+                      null;
 
     if (audioFile) {
       const audio = new Audio(`/uploads/audio/${audioFile}`);
@@ -120,16 +134,56 @@ export default function Practice() {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         const voices = window.speechSynthesis.getVoices();
+
+        // Precise voice matching for each accent
         let targetVoice = null;
+
         if (accent === 'british') {
-          targetVoice = voices.find(v => v.lang === 'en-GB') || voices.find(v => v.lang.startsWith('en'));
+          // Priority order for British English
+          targetVoice = voices.find(v => v.lang === 'en-GB' && v.name.toLowerCase().includes('female')) ||
+                        voices.find(v => v.lang === 'en-GB') ||
+                        voices.find(v => v.name.toLowerCase().includes('british')) ||
+                        voices.find(v => v.name.includes('Daniel') && v.lang.startsWith('en')) ||
+                        voices.find(v => v.name.includes('Kate') && v.lang.startsWith('en'));
+          utterance.lang = 'en-GB';
+        } else if (accent === 'american') {
+          // Priority order for American English
+          targetVoice = voices.find(v => v.lang === 'en-US' && v.name.toLowerCase().includes('female')) ||
+                        voices.find(v => v.lang === 'en-US') ||
+                        voices.find(v => v.name.toLowerCase().includes('american')) ||
+                        voices.find(v => v.name.includes('Samantha')) ||
+                        voices.find(v => v.name.includes('Alex'));
+          utterance.lang = 'en-US';
         } else if (accent === 'australian') {
-          targetVoice = voices.find(v => v.lang === 'en-AU') || voices.find(v => v.lang === 'en-GB') || voices.find(v => v.lang.startsWith('en'));
-        } else {
+          // Priority order for Australian English
+          targetVoice = voices.find(v => v.lang === 'en-AU') ||
+                        voices.find(v => v.name.toLowerCase().includes('australia')) ||
+                        voices.find(v => v.name.includes('Karen') && v.lang.startsWith('en')) ||
+                        voices.find(v => v.name.includes('Lee') && v.lang.startsWith('en'));
+          utterance.lang = 'en-AU';
+        } else if (accent === 'newzealand') {
+          // Priority order for New Zealand English
+          targetVoice = voices.find(v => v.lang === 'en-NZ') ||
+                        voices.find(v => v.name.toLowerCase().includes('zealand')) ||
+                        voices.find(v => v.name.toLowerCase().includes('new zealand')) ||
+                        // NZ is close to Australian, fallback
+                        voices.find(v => v.lang === 'en-AU') ||
+                        voices.find(v => v.lang === 'en-GB');
+          utterance.lang = 'en-NZ';
+        }
+
+        // If no specific voice found, use any English voice
+        if (!targetVoice) {
           targetVoice = voices.find(v => v.lang.startsWith('en'));
         }
-        if (targetVoice) utterance.voice = targetVoice;
+
+        if (targetVoice) {
+          utterance.voice = targetVoice;
+          utterance.lang = targetVoice.lang; // Ensure lang matches the found voice
+        }
+
         utterance.rate = 0.85;
+        utterance.pitch = 1.0;
         utterance.onend = () => setIsPlaying(false);
         utterance.onerror = () => setIsPlaying(false);
         window.speechSynthesis.speak(utterance);
@@ -259,15 +313,21 @@ export default function Practice() {
         <div className="card mb-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <span className="text-sm font-medium text-gray-600">Accent:</span>
-            <div className="flex gap-2">
-              {['british', 'australian', 'teacher'].map(a => (
-                <button key={a} onClick={() => setAccent(a)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${accent === a ? 'bg-brand-navy text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                  {a === 'british' ? '🇬🇧 British' : a === 'australian' ? '🇦🇺 Australian' : '👨‍🏫 Teacher'}
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { key: 'british', label: '🇬🇧 British', flag: '🇬🇧' },
+                { key: 'american', label: '🇺🇸 American', flag: '🇺🇸' },
+                { key: 'australian', label: '🇦🇺 Australian', flag: '🇦🇺' },
+                { key: 'newzealand', label: '🇳🇿 NZ', flag: '🇳🇿' },
+              ].map(a => (
+                <button key={a.key} onClick={() => setAccent(a.key)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${accent === a.key ? 'bg-brand-navy text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                  {a.label}
                 </button>
               ))}
             </div>
           </div>
+          <p className="text-xs text-gray-400 mt-2">* ভয়েস আপনার ডিভাইস/ব্রাউজারের উপর নির্ভর করে</p>
         </div>
 
         {/* Audio Player */}
@@ -291,11 +351,28 @@ export default function Practice() {
               <textarea ref={inputRef} value={answer} onChange={(e) => setAnswer(e.target.value)}
                 className="input-field text-lg min-h-[100px]" placeholder="Type what you hear..."
                 disabled={feedback?.is_correct || attempts >= 3}
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                data-gramm="false"
+                data-gramm_editor="false"
+                data-enable-grammarly="false"
+                data-lt-active="false"
                 onKeyDown={e => { if (e.ctrlKey && e.key === 'Enter') handleSubmit(e); }} />
             ) : (
               <input ref={inputRef} type="text" value={answer} onChange={(e) => setAnswer(e.target.value)}
                 className="input-field text-lg" placeholder="Type what you hear..."
-                disabled={feedback?.is_correct || attempts >= 3} autoFocus />
+                disabled={feedback?.is_correct || attempts >= 3}
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                data-gramm="false"
+                data-gramm_editor="false"
+                data-enable-grammarly="false"
+                data-lt-active="false"
+                autoFocus />
             )}
           </div>
 
