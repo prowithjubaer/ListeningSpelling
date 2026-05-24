@@ -15,6 +15,7 @@ export default function ItemForm() {
     category: 'ielts',
     difficulty: 'medium',
     correct_text: '',
+    bangla_meaning: '',
     note: '',
     tags: '',
     punctuation_mode: 'ignore',
@@ -39,6 +40,7 @@ export default function ItemForm() {
             category: item.category || 'ielts',
             difficulty: item.difficulty || 'medium',
             correct_text: item.correct_text || '',
+            bangla_meaning: item.bangla_meaning || '',
             note: item.note || '',
             tags: Array.isArray(item.tags) ? item.tags.join(', ') : (item.tags || ''),
             punctuation_mode: item.punctuation_mode || 'ignore',
@@ -75,6 +77,7 @@ export default function ItemForm() {
       formData.append('category', form.category);
       formData.append('difficulty', form.difficulty);
       formData.append('correct_text', form.correct_text);
+      formData.append('bangla_meaning', form.bangla_meaning);
       formData.append('note', form.note);
       formData.append('tags', form.tags);
       formData.append('punctuation_mode', form.punctuation_mode);
@@ -158,6 +161,18 @@ export default function ItemForm() {
               placeholder="Enter the correct text that students should type..."
               rows={3}
             />
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">বাংলা অর্থ (Bangla Meaning)</label>
+            <textarea
+              value={form.bangla_meaning}
+              onChange={(e) => handleChange('bangla_meaning', e.target.value)}
+              className="input-field"
+              placeholder="এই শব্দ/বাক্যের বাংলা অর্থ লিখুন..."
+              rows={2}
+            />
+            <p className="text-xs text-gray-400 mt-1">ফলাফল দেখানোর সময় student-কে বাংলা অর্থ দেখানো হবে</p>
           </div>
 
           <div className="mt-4">

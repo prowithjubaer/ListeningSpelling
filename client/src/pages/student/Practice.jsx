@@ -468,10 +468,16 @@ export default function Practice() {
               {feedback.is_correct && (
                 <p className="text-green-700">✅ +{feedback.xp_earned || 0} XP</p>
               )}
+              {feedback.is_correct && feedback.bangla_meaning && (
+                <p className="text-sm bg-blue-50 p-2 rounded border border-blue-100 text-blue-800 mt-2">📖 বাংলা অর্থ: {feedback.bangla_meaning}</p>
+              )}
               {feedback.correct_text && !feedback.is_correct && (
                 <div className="mt-2">
                   <p className="text-sm font-medium text-gray-700 mb-1">সঠিক উত্তর:</p>
                   <p className="font-mono bg-white p-2 rounded border text-green-700">{feedback.correct_text}</p>
+                  {feedback.bangla_meaning && (
+                    <p className="text-sm bg-blue-50 p-2 rounded border border-blue-100 text-blue-800 mt-1">📖 বাংলা: {feedback.bangla_meaning}</p>
+                  )}
                 </div>
               )}
               {feedback.differences && feedback.differences.length > 0 && (

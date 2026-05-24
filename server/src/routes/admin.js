@@ -131,13 +131,13 @@ router.get('/items/:id', (req, res) => {
 
 router.post('/items', audioUpload.fields([{ name: 'british_audio', maxCount: 1 }, { name: 'australian_audio', maxCount: 1 }, { name: 'teacher_audio', maxCount: 1 }]), (req, res) => {
   try {
-    const { category, difficulty, correct_text, note, tags, tts_enabled, punctuation_mode, capitalization_mode, replay_limit, xp_value, active } = req.body;
+    const { category, difficulty, correct_text, bangla_meaning, note, tags, tts_enabled, punctuation_mode, capitalization_mode, replay_limit, xp_value, active } = req.body;
     if (!category || !correct_text) return res.status(400).json({ error: 'Category and correct text required.' });
     const normalized = normalizeText(correct_text, { punctuationMode: punctuation_mode || 'flexible', capitalizationMode: capitalization_mode || 'flexible' });
     const britishPath = req.files?.british_audio?.[0]?.filename || null;
     const australianPath = req.files?.australian_audio?.[0]?.filename || null;
     const teacherPath = req.files?.teacher_audio?.[0]?.filename || null;
-    const result = db.prepare('INSERT INTO listening_items (category, difficulty, correct_text, normalized_text, note, tags, british_audio_path, australian_audio_path, teacher_audio_path, tts_enabled, punctuation_mode, capitalization_mode, replay_limit, xp_value, active, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(category, difficulty || 'medium', correct_text, normalized, note || null, tags || null, britishPath, australianPath, teacherPath, tts_enabled !== undefined ? (tts_enabled === 'true' || tts_enabled === '1' ? 1 : 0) : 1, punctuation_mode || 'flexible', capitalization_mode || 'flexible', replay_limit ? parseInt(replay_limit) : null, xp_value ? parseInt(xp_value) : 10, active !== undefined ? (active === 'true' || active === '1' ? 1 : 0) : 1, req.user.id);
+    const result = db.prepare('INSERT INTO listening_items (category, difficulty, correct_text, normalized_text, bangla_meaning, note, tags, british_audio_path, australian_audio_path, teacher_audio_path, tts_enabled, punctuation_mode, capitalization_mode, replay_limit, xp_value, active, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(category, difficulty || 'medium', correct_text, normalized, bangla_meaning || null, note || null, tags || null, britishPath, australianPath, teacherPath, tts_enabled !== undefined ? (tts_enabled === 'true' || tts_enabled === '1' ? 1 : 0) : 1, punctuation_mode || 'flexible', capitalization_mode || 'flexible', replay_limit ? parseInt(replay_limit) : null, xp_value ? parseInt(xp_value) : 10, active !== undefined ? (active === 'true' || active === '1' ? 1 : 0) : 1, req.user.id);
     res.status(201).json(db.prepare('SELECT * FROM listening_items WHERE id = ?').get(result.lastInsertRowid));
   } catch (err) { res.status(500).json({ error: 'Failed to create item.' }); }
 });
@@ -146,7 +146,7 @@ router.put('/items/:id', audioUpload.fields([{ name: 'british_audio', maxCount: 
   try {
     const existing = db.prepare('SELECT * FROM listening_items WHERE id = ?').get(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Item not found.' });
-    const { category, difficulty, correct_text, note, tags, tts_enabled, punctuation_mode, capitalization_mode, replay_limit, xp_value, active } = req.body;
+    const { category, difficulty, correct_text, bangla_meaning, note, tags, tts_enabled, punctuation_mode, capitalization_mode, replay_limit, xp_value, active } = req.body;
     const text = correct_text || existing.correct_text;
     const pm = punctuation_mode || existing.punctuation_mode;
     const cm = capitalization_mode || existing.capitalization_mode;
@@ -154,7 +154,7 @@ router.put('/items/:id', audioUpload.fields([{ name: 'british_audio', maxCount: 
     const britishPath = req.files?.british_audio?.[0]?.filename || existing.british_audio_path;
     const australianPath = req.files?.australian_audio?.[0]?.filename || existing.australian_audio_path;
     const teacherPath = req.files?.teacher_audio?.[0]?.filename || existing.teacher_audio_path;
-    db.prepare('UPDATE listening_items SET category=?, difficulty=?, correct_text=?, normalized_text=?, note=?, tags=?, british_audio_path=?, australian_audio_path=?, teacher_audio_path=?, tts_enabled=?, punctuation_mode=?, capitalization_mode=?, replay_limit=?, xp_value=?, active=?, updated_at=datetime(\'now\') WHERE id=?').run(category || existing.category, difficulty || existing.difficulty, text, normalized, note !== undefined ? note : existing.note, tags !== undefined ? tags : existing.tags, britishPath, australianPath, teacherPath, tts_enabled !== undefined ? (tts_enabled === 'true' || tts_enabled === '1' ? 1 : 0) : existing.tts_enabled, pm, cm, replay_limit ? parseInt(replay_limit) : existing.replay_limit, xp_value ? parseInt(xp_value) : existing.xp_value, active !== undefined ? (active === 'true' || active === '1' ? 1 : 0) : existing.active, req.params.id);
+    db.prepare('UPDATE listening_items SET category=?, difficulty=?, correct_text=?, normalized_text=?, bangla_meaning=?, note=?, tags=?, british_audio_path=?, australian_audio_path=?, teacher_audio_path=?, tts_enabled=?, punctuation_mode=?, capitalization_mode=?, replay_limit=?, xp_value=?, active=?, updated_at=datetime(\'now\') WHERE id=?').run(category || existing.category, difficulty || existing.difficulty, text, normalized, bangla_meaning !== undefined ? bangla_meaning : existing.bangla_meaning, note !== undefined ? note : existing.note, tags !== undefined ? tags : existing.tags, britishPath, australianPath, teacherPath, tts_enabled !== undefined ? (tts_enabled === 'true' || tts_enabled === '1' ? 1 : 0) : existing.tts_enabled, pm, cm, replay_limit ? parseInt(replay_limit) : existing.replay_limit, xp_value ? parseInt(xp_value) : existing.xp_value, active !== undefined ? (active === 'true' || active === '1' ? 1 : 0) : existing.active, req.params.id);
     res.json(db.prepare('SELECT * FROM listening_items WHERE id = ?').get(req.params.id));
   } catch (err) { res.status(500).json({ error: 'Failed to update item.' }); }
 });

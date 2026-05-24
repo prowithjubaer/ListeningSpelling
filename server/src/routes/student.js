@@ -121,10 +121,10 @@ router.post('/practice/:id/submit', (req, res) => {
     if (xpEarned > 0) { db.prepare('UPDATE users SET xp = xp + ? WHERE id = ?').run(xpEarned, studentId); db.prepare('INSERT INTO xp_logs (student_id, action_type, xp, item_id) VALUES (?, ?, ?, ?)').run(studentId, isCorrect ? 'correct_answer' : 'mastered', xpEarned, itemId); }
     updateStreak(studentId); checkBadges(studentId);
     const response = { is_correct: isCorrect, attempt_number: attemptNum, xp_earned: xpEarned };
-    if (isCorrect) { response.message = 'দারুণ! একদম ঠিক হয়েছে 🎉'; response.correct_text = item.correct_text; }
+    if (isCorrect) { response.message = 'দারুণ! একদম ঠিক হয়েছে 🎉'; response.correct_text = item.correct_text; response.bangla_meaning = item.bangla_meaning; }
     else if (attemptNum === 1) { response.message = 'আরেকবার শুনে চেষ্টা করুন 💪'; }
     else if (attemptNum === 2) { response.message = 'আরো একবার মনোযোগ দিয়ে শুনুন। আপনি পারবেন 🔁'; }
-    else { response.message = 'ভুল হওয়া মানেই শেখা হচ্ছে। পরের বার ঠিক হবে!'; response.correct_text = item.correct_text; response.differences = getDifferences(typed_answer, item.correct_text); }
+    else { response.message = 'ভুল হওয়া মানেই শেখা হচ্ছে। পরের বার ঠিক হবে!'; response.correct_text = item.correct_text; response.bangla_meaning = item.bangla_meaning; response.differences = getDifferences(typed_answer, item.correct_text); }
     res.json(response);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Failed to submit answer.' }); }
 });

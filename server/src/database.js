@@ -48,6 +48,7 @@ function initializeDatabase() {
       difficulty TEXT NOT NULL DEFAULT 'medium' CHECK(difficulty IN ('easy', 'medium', 'hard')),
       correct_text TEXT NOT NULL,
       normalized_text TEXT NOT NULL,
+      bangla_meaning TEXT,
       note TEXT,
       tags TEXT,
       british_audio_path TEXT,
