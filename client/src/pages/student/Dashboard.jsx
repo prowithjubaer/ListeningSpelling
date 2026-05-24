@@ -27,8 +27,17 @@ export default function Dashboard() {
     );
   }
 
-  const stats = data?.stats || {};
-  const progress = data?.today || {};
+  // Backend returns flat: { user, accuracy, totalAttempts, todayPracticed, dueReviews, mistakes, mastered, categoryProgress, rank }
+  const accuracy = data?.accuracy || 0;
+  const xp = data?.user?.xp || user?.xp || 0;
+  const streak = data?.user?.streak || user?.streak || 0;
+  const rank = data?.rank || '-';
+  const dueReviews = data?.dueReviews || 0;
+  const mistakes = data?.mistakes || 0;
+  const mastered = data?.mastered || 0;
+  const todayPracticed = data?.todayPracticed || 0;
+  const categoryProgress = data?.categoryProgress || [];
+
   const categories = [
     { key: 'ielts', label: 'IELTS Words', icon: '📚', color: 'from-blue-500 to-blue-600', desc: 'IELTS vocabulary practice' },
     { key: 'phrase', label: 'Phrases', icon: '💬', color: 'from-purple-500 to-purple-600', desc: 'Common English phrases' },
@@ -50,7 +59,7 @@ export default function Dashboard() {
       <div className="card bg-gradient-to-r from-brand-navy to-navy-600 text-white mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-bold mb-1">স্বাগতম, {user?.name || 'Student'}! 👋</h3>
+            <h3 className="text-xl font-bold mb-1">স্বাগতম, {data?.user?.name || user?.name || 'Student'}! 👋</h3>
             <p className="text-navy-200 text-sm">{todayMessage}</p>
           </div>
           <div className="hidden sm:block text-4xl">🎯</div>
@@ -61,40 +70,40 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="card text-center">
           <div className="text-3xl mb-1">🎯</div>
-          <p className="text-2xl font-bold text-brand-navy">{stats.accuracy || 0}%</p>
+          <p className="text-2xl font-bold text-brand-navy">{accuracy}%</p>
           <p className="text-xs text-gray-500">Accuracy</p>
         </div>
         <div className="card text-center">
           <div className="text-3xl mb-1">⚡</div>
-          <p className="text-2xl font-bold text-yellow-500">{stats.xp || 0}</p>
+          <p className="text-2xl font-bold text-yellow-500">{xp}</p>
           <p className="text-xs text-gray-500">Total XP</p>
         </div>
         <div className="card text-center">
           <div className="text-3xl mb-1">🔥</div>
-          <p className="text-2xl font-bold text-orange-500">{stats.streak || 0}</p>
+          <p className="text-2xl font-bold text-orange-500">{streak}</p>
           <p className="text-xs text-gray-500">Day Streak</p>
         </div>
         <div className="card text-center">
           <div className="text-3xl mb-1">🏆</div>
-          <p className="text-2xl font-bold text-purple-500">#{stats.rank || '-'}</p>
+          <p className="text-2xl font-bold text-purple-500">#{rank}</p>
           <p className="text-xs text-gray-500">Rank</p>
         </div>
       </div>
 
       {/* Today's Progress */}
       <div className="card mb-6">
-        <h3 className="text-lg font-bold text-brand-navy mb-4">📅 আজকের অগ্রগতি</h3>
+        <h3 className="text-lg font-bold text-brand-navy mb-4">📅 আজকের অগ্রগতি ({todayPracticed} practiced today)</h3>
         <div className="grid grid-cols-3 gap-4">
           <div className="text-center p-3 bg-blue-50 rounded-xl">
-            <p className="text-2xl font-bold text-blue-600">{progress.due_reviews || 0}</p>
+            <p className="text-2xl font-bold text-blue-600">{dueReviews}</p>
             <p className="text-xs text-gray-600">Due Reviews</p>
           </div>
           <div className="text-center p-3 bg-red-50 rounded-xl">
-            <p className="text-2xl font-bold text-red-600">{progress.mistakes || 0}</p>
+            <p className="text-2xl font-bold text-red-600">{mistakes}</p>
             <p className="text-xs text-gray-600">Mistakes</p>
           </div>
           <div className="text-center p-3 bg-green-50 rounded-xl">
-            <p className="text-2xl font-bold text-green-600">{progress.mastered || 0}</p>
+            <p className="text-2xl font-bold text-green-600">{mastered}</p>
             <p className="text-xs text-gray-600">Mastered</p>
           </div>
         </div>
@@ -102,31 +111,46 @@ export default function Dashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-        <Link to="/practice?mode=review" className="card hover:shadow-md transition flex items-center gap-4 group">
-          <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition">🔄</div>
-          <div>
-            <h4 className="font-semibold text-brand-navy">Due Reviews</h4>
-            <p className="text-sm text-gray-500">{progress.due_reviews || 0}টি রিভিউ বাকি আছে</p>
-          </div>
-        </Link>
-        <Link to="/mistakes" className="card hover:shadow-md transition flex items-center gap-4 group">
-          <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition">📝</div>
-          <div>
-            <h4 className="font-semibold text-brand-navy">Mistake Review</h4>
-            <p className="text-sm text-gray-500">ভুলগুলো থেকে শিখো</p>
-          </div>
-        </Link>
+        {dueReviews > 0 && (
+          <Link to="/practice?mode=review" className="card hover:shadow-md transition flex items-center gap-4 group border-2 border-blue-200 bg-blue-50">
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition">🔄</div>
+            <div>
+              <h4 className="font-semibold text-brand-navy">Due Reviews</h4>
+              <p className="text-sm text-gray-500">{dueReviews}টি রিভিউ বাকি আছে</p>
+            </div>
+          </Link>
+        )}
+        {mistakes > 0 && (
+          <Link to="/mistakes" className="card hover:shadow-md transition flex items-center gap-4 group border-2 border-red-200 bg-red-50">
+            <div className="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center text-2xl group-hover:scale-110 transition">📝</div>
+            <div>
+              <h4 className="font-semibold text-brand-navy">Mistake Review</h4>
+              <p className="text-sm text-gray-500">{mistakes}টি ভুল ঠিক করো</p>
+            </div>
+          </Link>
+        )}
       </div>
+
+      {/* Category Progress */}
+      {categoryProgress.length > 0 && (
+        <div className="card mb-6">
+          <h3 className="text-lg font-bold text-brand-navy mb-3">📊 Category Progress</h3>
+          <div className="space-y-2">
+            {categoryProgress.map(cp => (
+              <div key={cp.category} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                <span className="capitalize font-medium text-sm">{cp.category}</span>
+                <span className="text-sm text-gray-600">{cp.mastered_count}/{cp.total} mastered</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Practice Categories */}
       <h3 className="text-lg font-bold text-brand-navy mb-4">🎧 প্র্যাকটিস ক্যাটাগরি</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {categories.map(cat => (
-          <Link
-            key={cat.key}
-            to={`/practice/${cat.key}`}
-            className="card hover:shadow-md transition group"
-          >
+          <Link key={cat.key} to={`/practice/${cat.key}`} className="card hover:shadow-md transition group">
             <div className="flex items-center gap-4">
               <div className={`w-14 h-14 bg-gradient-to-br ${cat.color} rounded-xl flex items-center justify-center text-2xl text-white group-hover:scale-110 transition`}>
                 {cat.icon}
