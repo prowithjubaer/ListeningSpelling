@@ -23,6 +23,8 @@ export default function Practice() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingUrl, setRecordingUrl] = useState(null);
   const [ttsText, setTtsText] = useState('');
+  const [ttsSentences, setTtsSentences] = useState([]);
+  const [currentSentenceIdx, setCurrentSentenceIdx] = useState(0);
 
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -78,6 +80,8 @@ export default function Practice() {
     setFeedback(null);
     setRecordingUrl(null);
     setTtsText('');
+    setTtsSentences([]);
+    setCurrentSentenceIdx(0);
     setReplayCount(0);
     setIsPaused(false);
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -123,7 +127,7 @@ export default function Practice() {
     }
   }, [item, accent, ttsText]);
 
-  const playTTS = async () => {
+  const playTTS = async (fromSentenceIndex = null) => {
     if (!item) { setIsPlaying(false); return; }
 
     try {
@@ -134,13 +138,20 @@ export default function Practice() {
         setTtsText(text);
       }
 
+      // Split text into sentences for skip support
+      const sentences = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g)?.map(s => s.trim()).filter(Boolean) || [text];
+      setTtsSentences(sentences);
+
+      const startIdx = fromSentenceIndex !== null ? fromSentenceIndex : 0;
+      setCurrentSentenceIdx(startIdx);
+      const textToSpeak = sentences.slice(startIdx).join(' ');
+
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
         const voices = window.speechSynthesis.getVoices();
 
         // Force the correct language tag FIRST - this is the most reliable method
-        // Browser will automatically use the best matching voice for the lang
         const langMap = {
           'british': 'en-GB',
           'american': 'en-US',
@@ -153,24 +164,13 @@ export default function Practice() {
         let targetVoice = null;
         if (voices.length > 0) {
           const targetLang = langMap[accent];
-          
-          // Priority 1: Exact lang match
           targetVoice = voices.find(v => v.lang === targetLang);
-          
-          // Priority 2: Partial match (e.g., en-GB matches en-GB-x-rjs)
           if (!targetVoice) targetVoice = voices.find(v => v.lang.startsWith(targetLang));
-          
-          // Priority 3: For NZ, try AU then GB
           if (!targetVoice && accent === 'newzealand') {
             targetVoice = voices.find(v => v.lang === 'en-AU') || voices.find(v => v.lang === 'en-GB');
           }
-          
-          // Priority 4: Any English voice
           if (!targetVoice) targetVoice = voices.find(v => v.lang.startsWith('en'));
-
-          if (targetVoice) {
-            utterance.voice = targetVoice;
-          }
+          if (targetVoice) utterance.voice = targetVoice;
         }
 
         utterance.rate = 0.85;
@@ -248,14 +248,27 @@ export default function Practice() {
     }
   };
 
-  // Skip forward/backward for audio (works with uploaded audio)
+  // Skip forward/backward for audio
   const skipAudio = (seconds) => {
     if (audioElementRef.current) {
-      // Uploaded audio — proper seek
+      // Uploaded audio — proper time seek
       audioElementRef.current.currentTime = Math.max(0, Math.min(audioElementRef.current.duration, audioElementRef.current.currentTime + seconds));
+    } else if (window.speechSynthesis && isPlaying && ttsSentences.length > 0) {
+      // TTS — sentence-based skip (jump to prev/next sentence)
+      const direction = seconds > 0 ? 1 : -1;
+      const jump = Math.abs(seconds) >= 10 ? 2 : 1; // 10s = 2 sentences, 5s = 1 sentence
+      const newIdx = Math.max(0, Math.min(ttsSentences.length - 1, currentSentenceIdx + (direction * jump)));
+      
+      if (newIdx !== currentSentenceIdx) {
+        setCurrentSentenceIdx(newIdx);
+        window.speechSynthesis.cancel();
+        setIsPaused(false);
+        // Replay from the new sentence index
+        playTTS(newIdx);
+        toast(`Sentence ${newIdx + 1}/${ttsSentences.length}`, { icon: direction > 0 ? '⏩' : '⏪', duration: 1500 });
+      }
     } else if (window.speechSynthesis && isPlaying) {
-      // TTS — no native seek, show toast
-      toast('TTS-এ skip সমর্থিত নয়। Uploaded audio-তে কাজ করে।', { icon: 'ℹ️', duration: 2000 });
+      toast('শুধু একটি sentence আছে।', { icon: 'ℹ️', duration: 1500 });
     }
   };
 
